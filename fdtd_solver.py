@@ -9,11 +9,17 @@ EPS0 = 1.0 / (MU0 * C0**2)
 
 class FDTDSolver:
     """
-    2D TMz FDTD grid.
+    2D TMz FDTD solver.
 
-    Ez: electric field, located at cell centers
-    Hx: magnetic field, staggered in the y direction
-    Hy: magnetic field, staggered in the x direction
+    Ez: electric field (V/m)
+    Hx: magnetic field (A/m), x-directed
+    Hy: magnetic field (A/m), y-directed
+
+    Features:
+    - Yee staggered grid
+    - Leapfrog time stepping
+    - 10 GHz continuous-wave point source
+    - First-order Mur absorbing boundaries
     """
 
     def __init__(
@@ -26,12 +32,12 @@ class FDTDSolver:
     ):
         self.frequency = frequency
         self.wavelength = C0 / frequency
+        self.omega = 2.0 * np.pi * frequency
 
-        # Spatial resolution
+        # Spatial grid
         self.dx = self.wavelength / cells_per_wavelength
         self.dy = self.dx
 
-        # Computational domain
         self.x_min, self.x_max = x_bounds
         self.y_min, self.y_max = y_bounds
 
@@ -43,11 +49,10 @@ class FDTDSolver:
             (self.y_max - self.y_min) / self.dy
         )) + 1
 
-        # Coordinate arrays
         self.x = self.x_min + np.arange(self.nx) * self.dx
         self.y = self.y_min + np.arange(self.ny) * self.dy
 
-        # 2D CFL stability limit
+        # CFL time step
         self.dt_max = 1.0 / (
             C0 * np.sqrt(
                 1.0 / self.dx**2 + 1.0 / self.dy**2
@@ -56,7 +61,7 @@ class FDTDSolver:
 
         self.dt = courant_factor * self.dt_max
 
-        # TMz field arrays (float32 saves memory)
+        # TMz Yee field arrays
         self.Ez = np.zeros(
             (self.ny, self.nx), dtype=np.float32
         )
@@ -71,40 +76,122 @@ class FDTDSolver:
 
         self.time_step = 0
 
+        # Point source position: transmitter at (-1, 0)
+        self.source_x = -1.0
+        self.source_y = 0.0
+
+        self.source_i = np.argmin(
+            np.abs(self.x - self.source_x)
+        )
+        self.source_j = np.argmin(
+            np.abs(self.y - self.source_y)
+        )
+
+        self.source_amplitude = 1.0
+
+        # Mur first-order absorbing boundary coefficients
+        sx = C0 * self.dt / self.dx
+        sy = C0 * self.dt / self.dy
+
+        self.mur_x = (sx - 1.0) / (sx + 1.0)
+        self.mur_y = (sy - 1.0) / (sy + 1.0)
+
     def print_grid_info(self):
         print("\n=== FDTD YEE GRID INITIALIZED ===")
         print(f"Frequency: {self.frequency / 1e9:.3f} GHz")
         print(f"Wavelength: {self.wavelength * 1000:.3f} mm")
-        print(f"Grid spacing dx: {self.dx * 1000:.3f} mm")
-        print(f"Grid spacing dy: {self.dy * 1000:.3f} mm")
+        print(f"Grid spacing: {self.dx * 1000:.3f} mm")
         print(f"Grid dimensions: {self.nx} x {self.ny}")
-        print(f"Ez array shape: {self.Ez.shape}")
-        print(f"Hx array shape: {self.Hx.shape}")
-        print(f"Hy array shape: {self.Hy.shape}")
-        print(f"Maximum time step: {self.dt_max * 1e12:.3f} ps")
+        print(f"Ez shape: {self.Ez.shape}")
+        print(f"Hx shape: {self.Hx.shape}")
+        print(f"Hy shape: {self.Hy.shape}")
         print(f"Chosen time step: {self.dt * 1e12:.3f} ps")
-        print(f"Total grid cells: {self.nx * self.ny:,}")
-    
-    
+        print(f"Source location: ({self.x[self.source_i]:.4f}, "
+              f"{self.y[self.source_j]:.4f}) m")
+
+    def inject_source(self):
+        """Inject a smoothly ramped 10 GHz sinusoidal point source."""
+
+        time = (self.time_step + 1) * self.dt
+
+        # Smoothly turn on the source over approximately 5 cycles
+        ramp_time = 5.0 / self.frequency
+        ramp = 1.0 - np.exp(
+            -(time / ramp_time)**2
+        )
+
+        signal = (
+            self.source_amplitude
+            * np.sin(self.omega * time)
+            * ramp
+        )
+
+        self.Ez[self.source_j, self.source_i] = signal
+
+    def apply_mur_boundary(self, ez_old):
+        """Apply first-order Mur absorbing conditions on four edges."""
+
+        # Left and right boundaries
+        self.Ez[1:-1, 0] = (
+            ez_old[1:-1, 1]
+            + self.mur_x * (
+                self.Ez[1:-1, 1] - ez_old[1:-1, 0]
+            )
+        )
+
+        self.Ez[1:-1, -1] = (
+            ez_old[1:-1, -2]
+            + self.mur_x * (
+                self.Ez[1:-1, -2] - ez_old[1:-1, -1]
+            )
+        )
+
+        # Bottom and top boundaries
+        self.Ez[0, 1:-1] = (
+            ez_old[1, 1:-1]
+            + self.mur_y * (
+                self.Ez[1, 1:-1] - ez_old[0, 1:-1]
+            )
+        )
+
+        self.Ez[-1, 1:-1] = (
+            ez_old[-2, 1:-1]
+            + self.mur_y * (
+                self.Ez[-2, 1:-1] - ez_old[-1, 1:-1]
+            )
+        )
+
+        # Simple corner treatment
+        self.Ez[0, 0] = 0.5 * (
+            self.Ez[0, 1] + self.Ez[1, 0]
+        )
+        self.Ez[0, -1] = 0.5 * (
+            self.Ez[0, -2] + self.Ez[1, -1]
+        )
+        self.Ez[-1, 0] = 0.5 * (
+            self.Ez[-1, 1] + self.Ez[-2, 0]
+        )
+        self.Ez[-1, -1] = 0.5 * (
+            self.Ez[-1, -2] + self.Ez[-2, -1]
+        )
+
     def step(self):
-        """
-        Advance the TMz electromagnetic fields by one time step.
+        """Advance the electromagnetic fields by one time step."""
 
-        Update magnetic fields first, then electric field.
-        """
+        # Save old electric field for Mur boundary calculation
+        ez_old = self.Ez.copy()
 
-        # Update Hx using the y-derivative of Ez
+        # 1. Update Hx
         self.Hx -= (
             self.dt / (MU0 * self.dy)
         ) * (self.Ez[1:, :] - self.Ez[:-1, :])
 
-        # Update Hy using the x-derivative of Ez
+        # 2. Update Hy
         self.Hy += (
             self.dt / (MU0 * self.dx)
         ) * (self.Ez[:, 1:] - self.Ez[:, :-1])
 
-        # Update Ez using the curl of the magnetic field.
-        # Boundary cells are left unchanged for now.
+        # 3. Update Ez
         curl_h = (
             (self.Hy[1:-1, 1:] - self.Hy[1:-1, :-1]) / self.dx
             -
@@ -115,43 +202,36 @@ class FDTDSolver:
             self.dt / EPS0
         ) * curl_h
 
+        # 4. Absorb outgoing waves at the domain edges
+        self.apply_mur_boundary(ez_old)
+
+        # 5. Inject the continuous-wave source
+        self.inject_source()
+
         self.time_step += 1
-
-
 
 
 if __name__ == "__main__":
     solver = FDTDSolver()
     solver.print_grid_info()
 
-    # Temporary Gaussian initial electric-field pulse
-    x0 = -1.0
-    y0 = 0.0
-    sigma = 0.03  # 3 cm spatial width
-
-    gaussian = np.exp(
-        -(
-            (solver.x[None, :] - x0)**2
-            + (solver.y[:, None] - y0)**2
-        ) / (2 * sigma**2)
-    )
-
-    solver.Ez[:] = gaussian.astype(np.float32)
-
-    # Run 100 FDTD time steps
-    for _ in range(100):
+    # Run 500 time steps
+    for _ in range(500):
         solver.step()
 
-    print("\n=== FIELD UPDATE TEST ===")
-    print(f"Time steps completed: {solver.time_step}")
-    print(f"Simulation time: {solver.time_step * solver.dt * 1e9:.3f} ns")
+    print("\n=== CONTINUOUS-WAVE TEST ===")
+    print(f"Time steps: {solver.time_step}")
+    print(
+        f"Simulation time: "
+        f"{solver.time_step * solver.dt * 1e9:.3f} ns"
+    )
     print(f"Maximum |Ez|: {np.max(np.abs(solver.Ez)):.6e}")
     print(f"Maximum |Hx|: {np.max(np.abs(solver.Hx)):.6e}")
     print(f"Maximum |Hy|: {np.max(np.abs(solver.Hy)):.6e}")
 
-    # Verify that the fields contain only finite values
     assert np.isfinite(solver.Ez).all()
     assert np.isfinite(solver.Hx).all()
     assert np.isfinite(solver.Hy).all()
 
-    print("PASS: All electromagnetic fields contain finite values.")
+    print("PASS: All fields contain finite values.")
+    print("PASS: Continuous-wave source and Mur boundaries executed.")
