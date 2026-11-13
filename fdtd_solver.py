@@ -84,8 +84,74 @@ class FDTDSolver:
         print(f"Maximum time step: {self.dt_max * 1e12:.3f} ps")
         print(f"Chosen time step: {self.dt * 1e12:.3f} ps")
         print(f"Total grid cells: {self.nx * self.ny:,}")
+    
+    
+    def step(self):
+        """
+        Advance the TMz electromagnetic fields by one time step.
+
+        Update magnetic fields first, then electric field.
+        """
+
+        # Update Hx using the y-derivative of Ez
+        self.Hx -= (
+            self.dt / (MU0 * self.dy)
+        ) * (self.Ez[1:, :] - self.Ez[:-1, :])
+
+        # Update Hy using the x-derivative of Ez
+        self.Hy += (
+            self.dt / (MU0 * self.dx)
+        ) * (self.Ez[:, 1:] - self.Ez[:, :-1])
+
+        # Update Ez using the curl of the magnetic field.
+        # Boundary cells are left unchanged for now.
+        curl_h = (
+            (self.Hy[1:-1, 1:] - self.Hy[1:-1, :-1]) / self.dx
+            -
+            (self.Hx[1:, 1:-1] - self.Hx[:-1, 1:-1]) / self.dy
+        )
+
+        self.Ez[1:-1, 1:-1] += (
+            self.dt / EPS0
+        ) * curl_h
+
+        self.time_step += 1
+
+
 
 
 if __name__ == "__main__":
     solver = FDTDSolver()
     solver.print_grid_info()
+
+    # Temporary Gaussian initial electric-field pulse
+    x0 = -1.0
+    y0 = 0.0
+    sigma = 0.03  # 3 cm spatial width
+
+    gaussian = np.exp(
+        -(
+            (solver.x[None, :] - x0)**2
+            + (solver.y[:, None] - y0)**2
+        ) / (2 * sigma**2)
+    )
+
+    solver.Ez[:] = gaussian.astype(np.float32)
+
+    # Run 100 FDTD time steps
+    for _ in range(100):
+        solver.step()
+
+    print("\n=== FIELD UPDATE TEST ===")
+    print(f"Time steps completed: {solver.time_step}")
+    print(f"Simulation time: {solver.time_step * solver.dt * 1e9:.3f} ns")
+    print(f"Maximum |Ez|: {np.max(np.abs(solver.Ez)):.6e}")
+    print(f"Maximum |Hx|: {np.max(np.abs(solver.Hx)):.6e}")
+    print(f"Maximum |Hy|: {np.max(np.abs(solver.Hy)):.6e}")
+
+    # Verify that the fields contain only finite values
+    assert np.isfinite(solver.Ez).all()
+    assert np.isfinite(solver.Hx).all()
+    assert np.isfinite(solver.Hy).all()
+
+    print("PASS: All electromagnetic fields contain finite values.")
