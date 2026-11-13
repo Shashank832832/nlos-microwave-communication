@@ -32,6 +32,7 @@ def main():
 
         snapshots.append(solver.Ez.copy())
 
+
     # Plot the four snapshots
     fig, axes = plt.subplots(2, 2, figsize=(13, 9))
 
@@ -39,6 +40,10 @@ def main():
         solver.x[0], solver.x[-1],
         solver.y[0], solver.y[-1]
     ]
+
+    # NEW: Calculate a common colour scale for all snapshots
+    vmax = max(np.max(np.abs(field)) for field in snapshots)
+    vmin = -vmax
 
     for ax, field, step in zip(
         axes.flat, snapshots, snapshot_steps
@@ -48,7 +53,9 @@ def main():
             extent=extent,
             origin="lower",
             cmap="RdBu_r",
-            aspect="equal"
+            aspect="equal",
+            vmin=vmin,       # NEW
+            vmax=vmax        # NEW
         )
 
         time_ns = step * solver.dt * 1e9
