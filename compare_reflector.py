@@ -100,11 +100,12 @@ def main():
         f"to {time_values[-1]:.3f} ns"
     )
 
+    
     # -----------------------------------------
     # 4. Plot receiver field versus time
     # -----------------------------------------
 
-    fig, axes = plt.subplots(2, 1, figsize=(12, 9))
+    fig1, axes = plt.subplots(2, 1, figsize=(12, 9))
 
     axes[0].plot(
         time_values,
@@ -138,14 +139,13 @@ def main():
     axes[1].set_ylabel("Difference in Ez (V/m)")
     axes[1].grid(True, alpha=0.3)
 
-    fig.suptitle(
+    fig1.suptitle(
         "10 GHz FDTD: Receiver Field Comparison",
         fontsize=15
     )
 
-    plt.tight_layout()
-    plt.savefig("receiver_field_comparison.png", dpi=200)
-    plt.show()
+    fig1.tight_layout()
+    fig1.savefig("receiver_field_comparison.png", dpi=200)
 
     # -----------------------------------------
     # 5. Plot RMS comparison
@@ -163,16 +163,16 @@ def main():
         scattered_rms
     ]
 
-    plt.figure(figsize=(9, 5))
+    fig2, ax = plt.subplots(figsize=(9, 5))
 
-    bars = plt.bar(labels, rms_values)
+    bars = ax.bar(labels, rms_values)
 
-    plt.ylabel("RMS Electric Field (V/m)")
-    plt.title("Receiver RMS Electric Field Comparison")
-    plt.grid(axis="y", alpha=0.3)
+    ax.set_ylabel("RMS Electric Field (V/m)")
+    ax.set_title("Receiver RMS Electric Field Comparison")
+    ax.grid(axis="y", alpha=0.3)
 
     for bar, value in zip(bars, rms_values):
-        plt.text(
+        ax.text(
             bar.get_x() + bar.get_width() / 2,
             bar.get_height(),
             f"{value:.3e}",
@@ -180,12 +180,17 @@ def main():
             va="bottom"
         )
 
-    plt.tight_layout()
-    plt.savefig("receiver_rms_comparison.png", dpi=200)
-    plt.show()
+    fig2.tight_layout()
+    fig2.savefig("receiver_rms_comparison.png", dpi=200)
+
+    # -----------------------------------------
+    # 6. Display both graphs
+    # -----------------------------------------
 
     print("\nSaved receiver_field_comparison.png")
     print("Saved receiver_rms_comparison.png")
+
+    plt.show()
 
 
 if __name__ == "__main__":
