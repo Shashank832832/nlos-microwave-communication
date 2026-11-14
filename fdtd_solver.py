@@ -29,7 +29,9 @@ class FDTDSolver:
         x_bounds=(-2.0, 0.6),
         y_bounds=(-0.3, 2.0),
         courant_factor=0.99,
-        use_pec=True
+        use_pec=True,
+        use_walls=False,
+        plate_angle_deg=45.0
     ):
         self.frequency = frequency
         self.wavelength = C0 / frequency
@@ -92,11 +94,13 @@ class FDTDSolver:
         
         # Finite PEC reflector
         self.plate_length = 0.30
-        self.plate_angle = np.deg2rad(45.0)
+        self.plate_angle = np.deg2rad(plate_angle_deg)
 
         self.pec_mask = self.create_pec_mask()
         
         self.use_pec = use_pec
+        self.use_walls = use_walls
+        self.wall_mask = self.create_wall_mask()
 
         # Mur first-order absorbing boundary coefficients
         sx = C0 * self.dt / self.dx
@@ -158,6 +162,38 @@ class FDTDSolver:
         mask = distance_squared <= (0.75 * self.dx)**2
 
         return mask
+    
+    def create_wall_mask(self):
+        """
+        Create PEC walls outside the L-shaped corridor.
+
+        The corridor consists of:
+        1. Horizontal arm: x = -2 to 0, y = -0.3 to 0.3
+        2. Vertical arm:   x = -0.3 to 0.3, y = 0 to 2
+        """
+
+        X, Y = np.meshgrid(self.x, self.y)
+
+        horizontal_arm = (
+            (X >= -2.0) &
+            (X <= 0.0) &
+            (Y >= -0.3) &
+            (Y <= 0.3)
+        )
+
+        vertical_arm = (
+            (X >= -0.3) &
+            (X <= 0.3) &
+            (Y >= 0.0) &
+            (Y <= 2.0)
+        )
+
+        corridor_region = horizontal_arm | vertical_arm
+
+        # Everything outside the corridor is treated as PEC.
+        wall_mask = ~corridor_region
+
+        return wall_mask
 
     def inject_source(self):
         """Inject a smoothly ramped 10 GHz sinusoidal point source."""
@@ -255,11 +291,15 @@ class FDTDSolver:
         # 4. Absorb outgoing waves at the domain edges
         self.apply_mur_boundary(ez_old)
 
-        # 5. Enforce PEC boundary condition
+        # 5. Enforce corridor wall boundary condition
+        if self.use_walls:
+            self.Ez[self.wall_mask] = 0.0
+
+        # 6. Enforce finite reflector boundary condition
         if self.use_pec:
             self.Ez[self.pec_mask] = 0.0
 
-        # 6. Inject the continuous-wave source
+        # 7. Inject the continuous-wave source
         self.inject_source()
 
         self.time_step += 1

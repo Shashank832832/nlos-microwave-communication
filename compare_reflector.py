@@ -12,10 +12,16 @@ def main():
     # -----------------------------------------
 
     print("Running simulation WITHOUT reflector...")
-    free_solver = FDTDSolver(use_pec=False)
+    free_solver = FDTDSolver(
+        use_pec=False,
+        use_walls=True
+    )
 
     print("Running simulation WITH reflector...")
-    pec_solver = FDTDSolver(use_pec=True)
+    pec_solver = FDTDSolver(
+        use_pec=True,
+        use_walls=True
+    )
 
     # Receiver coordinates
     receiver_x = 0.0
@@ -90,9 +96,9 @@ def main():
     )
 
     print("\n=== RECEIVER FIELD RESULTS ===")
-    print(f"Free-space receiver RMS Ez: {free_rms:.6e} V/m")
-    print(f"With PEC receiver RMS Ez:    {pec_rms:.6e} V/m")
-    print(f"Scattered-field RMS Ez:      {scattered_rms:.6e} V/m")
+    print(f"Corridor without reflector RMS Ez: {free_rms:.6e} V/m")
+    print(f"Corridor with reflector RMS Ez:    {pec_rms:.6e} V/m")
+    print(f"Difference-field RMS Ez:           {scattered_rms:.6e} V/m")
 
     print(
         f"Measurement interval: "
@@ -110,14 +116,14 @@ def main():
     axes[0].plot(
         time_values,
         free_receiver,
-        label="Without PEC",
+        label="Corridor without reflector",
         linewidth=1
     )
 
     axes[0].plot(
         time_values,
         pec_receiver,
-        label="With PEC",
+        label="Corridor with reflector",
         linewidth=1
     )
 
@@ -152,9 +158,9 @@ def main():
     # -----------------------------------------
 
     labels = [
-        "Without PEC",
-        "With PEC",
-        "Scattered field"
+        "No reflector",
+        "With reflector",
+        "Difference field"
     ]
 
     rms_values = [
