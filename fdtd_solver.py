@@ -28,7 +28,8 @@ class FDTDSolver:
         cells_per_wavelength=20,
         x_bounds=(-2.0, 0.6),
         y_bounds=(-0.3, 2.0),
-        courant_factor=0.99
+        courant_factor=0.99,
+        use_pec=True
     ):
         self.frequency = frequency
         self.wavelength = C0 / frequency
@@ -88,6 +89,14 @@ class FDTDSolver:
         )
 
         self.source_amplitude = 1.0
+        
+        # Finite PEC reflector
+        self.plate_length = 0.30
+        self.plate_angle = np.deg2rad(45.0)
+
+        self.pec_mask = self.create_pec_mask()
+        
+        self.use_pec = use_pec
 
         # Mur first-order absorbing boundary coefficients
         sx = C0 * self.dt / self.dx
@@ -108,6 +117,47 @@ class FDTDSolver:
         print(f"Chosen time step: {self.dt * 1e12:.3f} ps")
         print(f"Source location: ({self.x[self.source_i]:.4f}, "
               f"{self.y[self.source_j]:.4f}) m")
+        
+    def create_pec_mask(self):
+        """
+        Create a finite diagonal PEC plate centred at (0, 0).
+        Ez is forced to zero on the plate.
+        """
+
+        half_length = self.plate_length / 2
+
+        # Endpoints of the plate
+        x1 = -half_length * np.cos(self.plate_angle)
+        y1 = -half_length * np.sin(self.plate_angle)
+
+        x2 = half_length * np.cos(self.plate_angle)
+        y2 = half_length * np.sin(self.plate_angle)
+
+        # Grid coordinates
+        X, Y = np.meshgrid(self.x, self.y)
+
+        # Vector along the plate
+        vx = x2 - x1
+        vy = y2 - y1
+
+        # Project each grid point onto the plate segment
+        t = (
+            (X - x1) * vx + (Y - y1) * vy
+        ) / (vx**2 + vy**2)
+
+        t = np.clip(t, 0.0, 1.0)
+
+        closest_x = x1 + t * vx
+        closest_y = y1 + t * vy
+
+        distance_squared = (
+            (X - closest_x)**2 + (Y - closest_y)**2
+        )
+
+        # Approximate the thin plate on the discrete grid
+        mask = distance_squared <= (0.75 * self.dx)**2
+
+        return mask
 
     def inject_source(self):
         """Inject a smoothly ramped 10 GHz sinusoidal point source."""
@@ -205,7 +255,11 @@ class FDTDSolver:
         # 4. Absorb outgoing waves at the domain edges
         self.apply_mur_boundary(ez_old)
 
-        # 5. Inject the continuous-wave source
+        # 5. Enforce PEC boundary condition
+        if self.use_pec:
+            self.Ez[self.pec_mask] = 0.0
+
+        # 6. Inject the continuous-wave source
         self.inject_source()
 
         self.time_step += 1
