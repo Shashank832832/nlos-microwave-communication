@@ -1,0 +1,57 @@
+project:
+  name: NLOS Microwave Communication
+  description: Quick software-pipeline verification; not a physics validation
+simulation:
+  frequency_hz: 10000000000.0
+  cells_per_wavelength: 10
+  courant_factor: 0.99
+  warmup_cycles: 75
+  measurement_cycles: 8
+  domain_x_min_m: -2.0
+  domain_x_max_m: 0.6
+  domain_y_min_m: -0.3
+  domain_y_max_m: 2.0
+geometry:
+  horizontal_corridor_x_m: [-2.0, 0.0]
+  horizontal_corridor_y_m: [-0.3, 0.3]
+  vertical_corridor_x_m: [-0.3, 0.3]
+  vertical_corridor_y_m: [0.0, 2.0]
+  transmitter_world_m: [-1.0, 0.0]
+  reflector_center_world_m: [0.0, 0.0]
+  receiver_world_m: [0.0, 1.0]
+  reflector_nominal_angle_deg: 45.0
+  reflector_width_m: 0.30
+  reflector_height_m: 0.30
+  reflector_thickness_m: 0.001
+source:
+  waveform: cw
+  amplitude: 1.0
+  aperture_width_m: 0.12
+  steering_angle_deg: 0.0
+  taper: hann
+sensors:
+  receiver:
+    name: receiver
+    center_world_m: [0.0, 0.8]
+    normal_xy: [0.0, 1.0]
+    integration_length_m: 0.40
+  off_axis:
+    - {name: off_axis_left_near, center_world_m: [-0.12, 0.60], normal_xy: [-0.422618262, 0.906307787], integration_length_m: 0.22}
+    - {name: off_axis_center_near, center_world_m: [0.0, 0.60], normal_xy: [0.0, 1.0], integration_length_m: 0.22}
+    - {name: off_axis_right_near, center_world_m: [0.12, 0.60], normal_xy: [0.422618262, 0.906307787], integration_length_m: 0.22}
+    - {name: off_axis_left_mid, center_world_m: [-0.12, 1.0], normal_xy: [-0.422618262, 0.906307787], integration_length_m: 0.22}
+    - {name: off_axis_center_mid, center_world_m: [0.0, 1.0], normal_xy: [0.0, 1.0], integration_length_m: 0.22}
+    - {name: off_axis_right_mid, center_world_m: [0.12, 1.0], normal_xy: [0.422618262, 0.906307787], integration_length_m: 0.22}
+    - {name: off_axis_left_far, center_world_m: [-0.12, 1.40], normal_xy: [-0.422618262, 0.906307787], integration_length_m: 0.22}
+    - {name: off_axis_center_far, center_world_m: [0.0, 1.40], normal_xy: [0.0, 1.0], integration_length_m: 0.22}
+    - {name: off_axis_right_far, center_world_m: [0.12, 1.40], normal_xy: [0.422618262, 0.906307787], integration_length_m: 0.22}
+experiments:
+  tilt_offsets_deg: [-5, 0, 5]
+  plate_widths_lambda: [5, 10]
+outputs:
+  tables_dir: results/tables
+  figures_dir: results/figures
+  reports_dir: results/reports
+plotting:
+  dpi: 120
+  color_map: inferno

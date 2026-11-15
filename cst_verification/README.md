@@ -1,4 +1,26 @@
-# CST Studio Suite 2026 — verification workflow
+# CST Studio Suite 2026 — standalone verification workflow
+
+CST is a separate 3D verification model. The Python FDTD package neither imports CST APIs nor reads CST project files. No CST simulation result is included in the generated Python report or presentation unless the project team runs CST and exports data.
+
+## Export format for later comparison
+
+Export normalized positive linear power/flux values to CSV with exactly these required columns:
+
+```csv
+case_type,case_value,sensor_name,normalized_power
+baseline,0,off_axis_center_mid,1.0
+tilt,5,off_axis_center_mid,0.82
+```
+
+Include one `case_type=baseline` row per sensor and rows for the tested `tilt` offset (degrees) or `width` (wavelengths). `normalized_power` must be a positive linear power-like quantity normalized consistently for each sensor, not dB or field amplitude. Sensor names must match the Python `off_axis_sensors.csv`. The comparator computes `10 log10(case/baseline)` and writes matched trends to CSV; it does not merge engines or claim absolute CST/Python agreement.
+
+From the repository root, after both exports exist:
+
+```powershell
+python -m src.analysis.cst_comparison cst_export.csv --python-csv results/tables/off_axis_sensors.csv --case-type tilt --case-value 5 --output results/tables/cst_python_comparison.csv
+```
+
+The comparator is exercised with a synthetic schema test only; a real CST export has not been produced or validated by this Python task.
 
 Use CST for two progressively harder models. Save separate projects and keep a written record of all solver settings.
 
