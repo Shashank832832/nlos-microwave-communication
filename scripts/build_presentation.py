@@ -340,8 +340,8 @@ def main():
 
     slide = new_slide(prs, "Validation status & references", 14, "Reproducibility")
     add_bullets(slide, [
-        "Member 2 canonical solver and integration notes: reference_material/incoming/member2/.",
-        "Member 3 aperture source and validation: reference_material/incoming/member3/emt_project/.",
+        "Member 2 canonical solver and integration notes: src/fdtd/solver.py.",
+        "Member 3 aperture source and validation: src/sources/aperture_source.py.",
         "Project settings: configs/member4_experiments.yaml.",
         "Integration findings: docs/integration_audit.md.",
         "CST is an independent 3D model; no CST results are included unless separately exported and validated.",

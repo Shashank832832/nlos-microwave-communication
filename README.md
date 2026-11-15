@@ -36,8 +36,8 @@ At the nominal plate angle, specular reflection changes an incident +x propagati
 | `src/visualization/` | Separate plots for sweep trends, interception and baseline flow |
 | `tests/` | Geometry, mapping, callback, numerical smoke and quick-pipeline tests |
 | `cst_verification/` | Independent CST 3D workflow and future export comparison |
-| `legacy_reference/collaborator_v1/` | Retained root solver and solver-dependent scripts, excluded from active imports |
-| `reference_material/incoming/` | Original Member 2 and Member 3 submissions, kept intact |
+| `results/` | Generated experiment tables, figures and report |
+| `deliverables/` | Project presentation, submission checklist and packaged results |
 
 ## Python model and numerical scope
 
@@ -77,10 +77,8 @@ The independent CST setup and normalized-export comparison format are documented
 ```text
 configs/                 YAML baseline, quick, and final experiment settings
 cst_verification/        Independent CST model workflow
-deliverables/             Presentation and submission checklist
+deliverables/            Presentation, checklist, and packaged results
 docs/                     Integration audit
-legacy_reference/         Inactive collaborator engine and dependent scripts
-reference_material/       Original incoming Member 2/3 source submissions
 results/                  Generated experiment tables, figures, and report
 src/                      Active Python package
 tests/                    Automated integration and pipeline tests
